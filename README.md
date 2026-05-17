@@ -40,7 +40,7 @@ python3 scanner.py
 
 **One-liner (no clone needed):**
 ```bash
-curl -sL https://raw.githubusercontent.com/Valkonstantinov/OldMacGuard/main/scanner.py | python3
+curl -sL https://raw.githubusercontent.com/valldun1/OldMacGuard/main/scanner.py | python3
 ```
 
 ## 📋 Sample Output
