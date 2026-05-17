@@ -34,7 +34,7 @@ SIGNATURES_PATH = SCRIPT_DIR / "malware-signatures.json"
 BUILTIN_SIGNATURES_VERSION = "1.0"
 
 def load_signatures():
-    """Загрузить сигнатуры из файла. Если файла нет — вернуть встроенные."""
+    """Загрузить сигнатуры из файла. Если файла none — вернуть встроенные."""
     default = {
         "suspicious_processes": {
             "MacVxIP": "Adware/Malware",
@@ -91,10 +91,10 @@ def load_signatures():
             print("  [DB] Signatures v{} (from {})".format(sig_ver, upd))
             return sigs
         else:
-            print(f"  📦 Используются встроенные сигнатуры v{BUILTIN_SIGNATURES_VERSION}")
+            print(f"  📦 Using built-in signatures v{BUILTIN_SIGNATURES_VERSION}")
             return default
     except Exception as e:
-        print(f"  ⚠️ Ошибка загрузки сигнатур: {e}. Использую встроенные.")
+        print(f"  ⚠️ Error loading signatures: {e}. Using built-in.")
         return default
 
 SIGS = load_signatures()
@@ -133,8 +133,8 @@ def format_report():
     lines = []
     lines.append("=" * 60)
     lines.append(f"🍎 macOS Security Scan — {REPORT['hostname']}")
-    lines.append(f"   Время: {REPORT['time']}")
-    lines.append(f"   Оценка безопасности: {max(0, REPORT['score'])}/100")
+    lines.append(f"   Time: {REPORT['time']}")
+    lines.append(f"   Security score: {max(0, REPORT['score'])}/100")
     lines.append("=" * 60)
 
     # Группировка по категориям
@@ -157,13 +157,13 @@ def format_report():
                 lines.append(f"     💡 {item['fix']}")
 
     lines.append("\n" + "=" * 60)
-    lines.append(f"📊 ИТОГО: {len(REPORT['findings'])} находок | Оценка: {max(0, REPORT['score'])}/100")
+    lines.append(f"📊 TOTAL: {len(REPORT['findings'])} findings | Score: {max(0, REPORT['score'])}/100")
     if REPORT["score"] >= 80:
-        lines.append("✅ Система в хорошем состоянии")
+        lines.append("✅ System is in good shape")
     elif REPORT["score"] >= 50:
-        lines.append("⚠️ Есть что улучшить")
+        lines.append("⚠️ Room for improvement")
     else:
-        lines.append("🔴 Требуется немедленное внимание!")
+        lines.append("🔴 Immediate attention required!")
     lines.append("=" * 60)
 
     return "\n".join(lines)
@@ -181,13 +181,13 @@ def check_system_info():
     disk = run_cmd("df -h / | tail -1 | awk '{print $3 \" used / \" $2 \" total (\" $5 \" full)\"}'")
     uptime = run_cmd("uptime | sed 's/.*up //' | sed 's/,.*//'")
 
-    add_finding("Система", "info", f"macOS {macos} ({build})", f"CPU: {cpu}\nRAM: {ram}\nДиск: {disk}\nUptime: {uptime}\nSerial: {serial}")
+    add_finding("System", "info", f"macOS {macos} ({build})", f"CPU: {cpu}\nRAM: {ram}\nDisk: {disk}\nUptime: {uptime}\nSerial: {serial}")
 
     # Проверка версии — High Sierra не получает обновлений
     if "10.13" in macos:
-        add_finding("Система", "medium", "macOS High Sierra — больше не получает обновлений безопасности",
-                    "Система выпущена в 2017, Apple остановила поддержку. Рекомендуется обновление до совместимой версии.",
-                    "Обновиться до macOS Catalina (10.15) или установить патчи OCLP для Monterey+")
+        add_finding("System", "medium", "macOS High Sierra — no longer receiving security updates",
+                    "System выпущена в 2017, Apple остановила поддержку. Рекомендуется обновление до совместимой версии.",
+                    "Upgrade to macOS Catalina (10.15) or use OCLP patches for Monterey+")
 
 # ═══════════════════════════════════════════
 # 2. БАЗОВАЯ ЗАЩИТА (FileVault, SIP, Gatekeeper, Firewall)
@@ -197,42 +197,42 @@ def check_basic_security():
     # FileVault
     fv = run_cmd("fdesetup status")
     if "On" in fv or "on" in fv:
-        add_finding("Шифрование", "info", "FileVault включён ✅", fv)
+        add_finding("Encryption", "info", "FileVault is ON ✅", fv)
     else:
-        add_finding("Шифрование", "high", "FileVault НЕ включён ❌",
-                    fv, "Включи: System Preferences → Security → FileVault")
+        add_finding("Encryption", "high", "FileVault is OFF ❌",
+                    fv, "Enable: System Preferences → Security → FileVault")
 
     # SIP
     sip = run_cmd("csrutil status")
     if "enabled" in sip.lower():
-        add_finding("SIP", "info", "System Integrity Protection включён ✅", sip)
+        add_finding("SIP", "info", "System Integrity Protection is ON ✅", sip)
     else:
-        add_finding("SIP", "high", "SIP отключён ❌ — система уязвима",
-                    sip, "Включи: reboot → Cmd+R → Terminal → csrutil enable")
+        add_finding("SIP", "high", "SIP is OFF ❌ — system is vulnerable",
+                    sip, "Enable: reboot → Cmd+R → Terminal → csrutil enable")
 
     # Gatekeeper
     gk = run_cmd("spctl --status")
     if "enabled" in gk.lower():
-        add_finding("Gatekeeper", "info", "Gatekeeper включён ✅", gk)
+        add_finding("Gatekeeper", "info", "Gatekeeper is ON ✅", gk)
     else:
-        add_finding("Gatekeeper", "high", "Gatekeeper отключён ❌",
-                    gk, "Включи: spctl --master-enable / System Preferences → Security")
+        add_finding("Gatekeeper", "high", "Gatekeeper is OFF ❌",
+                    gk, "Enable: spctl --master-enable / System Preferences → Security")
 
     # Firewall
     fw = run_cmd("/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate")
     if "enabled" in fw.lower():
-        add_finding("Файрволл", "info", "Файрволл включён ✅", fw)
+        add_finding("Firewall", "info", "Firewall is ON ✅", fw)
     else:
-        add_finding("Файрволл", "medium", "Файрволл НЕ включён",
-                    fw, "Включи: /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on")
+        add_finding("Firewall", "medium", "Firewall is OFF",
+                    fw, "Enable: socketfilterfw --setglobalstate on")
 
     # Stealth mode
     stealth = run_cmd("/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode")
     if "enabled" in stealth.lower():
-        add_finding("Файрволл", "info", "Stealth Mode включён ✅", stealth)
+        add_finding("Firewall", "info", "Stealth Mode is ON ✅", stealth)
     else:
-        add_finding("Файрволл", "low", "Stealth Mode выключен",
-                    stealth, "Включи: socketfilterfw --setstealthmode on")
+        add_finding("Firewall", "low", "Stealth Mode is OFF",
+                    stealth, "Enable: socketfilterfw --setstealthmode on")
 
 # ═══════════════════════════════════════════
 # 3. ПРОЦЕССЫ — поиск малвари и подозрительных
@@ -252,9 +252,9 @@ def check_processes():
                     break
 
             procs_found.append((name, desc, pid_line))
-            add_finding("Процессы", "critical", f"⚠️ НАЙДЕН: {name} ({desc})",
+            add_finding("Processes", "critical", f"⚠️ FOUND: {name} ({desc})",
                         f"PID: {pid_line.split()[1] if pid_line else 'N/A'}\n{pid_line}",
-                        f"Удали: killall '{name}' && удали приложение из /Applications/")
+                        f"Remove: killall '{name}' && удали приложение из /Applications/")
 
     # Проверка на неизвестные процессы с высоким CPU
     high_cpu = run_cmd("ps aux --sort=-%cpu 2>/dev/null || ps aux -r 2>/dev/null | head -20")
@@ -266,14 +266,14 @@ def check_processes():
                 cpu = float(parts[2])
                 name = parts[10] if len(parts) > 10 else parts[-1]
                 if cpu > 50 and not any(x in name for x in ['kernel', 'WindowServer', 'Chrome', 'Hermes', 'Google Chrome']):
-                    add_finding("Процессы", "low", f"Высокая нагрузка CPU: {name} ({cpu}%)",
-                                line, "Проверь, что это за процесс")
+                    add_finding("Processes", "low", f"High CPU load: {name} ({cpu}%)",
+                                line, "Check what this process is")
             except (ValueError, IndexError):
                 pass
 
     if not procs_found:
-        add_finding("Процессы", "info", "Подозрительных процессов не найдено ✅",
-                    f"Всего процессов: {run_cmd('ps aux | wc -l').strip()}")
+        add_finding("Processes", "info", "No suspicious processes found ✅",
+                    f"Total processes: {run_cmd('ps aux | wc -l').strip()}")
 
 # ═══════════════════════════════════════════
 # 4. АВТОЗАГРУЗКА — LaunchAgents, Daemons, Login Items
@@ -291,7 +291,7 @@ def check_launch_agents():
             prog = data.get('Program', data.get('ProgramArguments', ['']))[0] if isinstance(data.get('ProgramArguments'), list) else str(data.get('Program', ''))
             reported.append(f"  • {name} → {prog}")
         except:
-            reported.append(f"  • {name} → (не удалось прочитать)")
+            reported.append(f"  • {name} → (failed to read)")
 
     # System LaunchDaemons (только сторонние)
     sys_ld = list(Path("/Library/LaunchDaemons").glob("*.plist")) if os.path.isdir("/Library/LaunchDaemons") else []
@@ -305,21 +305,21 @@ def check_launch_agents():
             prog = str(data.get('Program', data.get('ProgramArguments', [''])))[:120]
             third_party_ld.append(f"  • {plist.name} → {prog}")
         except:
-            third_party_ld.append(f"  • {plist.name} → (не удалось прочитать)")
+            third_party_ld.append(f"  • {plist.name} → (failed to read)")
 
-    add_finding("Автозагрузка", "info", f"User LaunchAgents: {len(user_la)} шт.",
-                '\n'.join(reported) if reported else "Пусто (только Hermes)")
+    add_finding("Startup", "info", f"User LaunchAgents: {len(user_la)}",
+                '\n'.join(reported) if reported else "Empty (only Hermes)")
 
     if third_party_ld:
-        add_finding("Автозагрузка", "info", f"Сторонние System LaunchDaemons: {len(third_party_ld)} шт.",
+        add_finding("Startup", "info", f"Third-party System LaunchDaemons: {len(third_party_ld)}",
                     '\n'.join(third_party_ld))
     else:
-        add_finding("Автозагрузка", "info", "Сторонних System LaunchDaemons нет ✅")
+        add_finding("Startup", "info", "No third-party System LaunchDaemons ✅")
 
     # Login Items
     login_items = run_cmd("osascript -e 'tell app \"System Events\" to get name of every login item' 2>/dev/null")
-    add_finding("Автозагрузка", "info", f"Login Items: {login_items if login_items else 'нет'}",
-                f"При старте запускаются: {login_items}")
+    add_finding("Startup", "info", f"Login Items: {login_items if login_items else 'none'}",
+                f"Starting at login: {login_items}")
 
 # ═══════════════════════════════════════════
 # 5. ПЛАНИРОВЩИК (cron, at)
@@ -327,12 +327,12 @@ def check_launch_agents():
 
 def check_scheduler():
     # Cron jobs
-    cron = run_cmd("crontab -l 2>/dev/null || echo 'Нет cron'")
+    cron = run_cmd("crontab -l 2>/dev/null || echo 'No cron'")
     if "Нет cron" in cron or not cron.strip():
-        add_finding("Планировщик", "info", "Пользовательских cron-задач нет ✅", "crontab -l: пусто")
+        add_finding("Scheduler", "info", "No user cron jobs ✅", "crontab -l: empty")
     else:
-        add_finding("Планировщик", "medium", "Найдены cron-задачи — проверь",
-                    cron[:500], "Проверь что каждая задача безопасна: crontab -l")
+        add_finding("Scheduler", "medium", "Found cron jobs — review them",
+                    cron[:500], "Verify each job is safe: crontab -l")
 
     # System cron (справочно)
     system_cron = run_cmd("ls /etc/periodic/daily/ /etc/periodic/weekly/ /etc/periodic/monthly/ 2>/dev/null")
@@ -344,9 +344,9 @@ def check_scheduler():
 def check_network():
     # Listening ports
     listening = run_cmd("lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null || netstat -an -p tcp | grep LISTEN")
-    add_finding("Сеть", "info", "Открытые TCP порты (слушающие):",
+    add_finding("Network", "info", "Open TCP ports (listening):",
                 listening[:500] if len(listening) > 500 else listening,
-                "Проверь что все порты — ожидаемые сервисы")
+                "Verify all ports are expected services")
 
     # Check for SSH
     ssh_enabled = run_cmd("systemsetup -getremotelogin 2>/dev/null")
@@ -354,18 +354,18 @@ def check_network():
         # Check SSH config
         ssh_permit_root = run_cmd("grep -i 'PermitRootLogin' /etc/ssh/sshd_config 2>/dev/null | grep -v '#'")
         ssh_pass = run_cmd("grep -i 'PasswordAuthentication' /etc/ssh/sshd_config 2>/dev/null")
-        add_finding("Сеть", "medium", "SSH (Remote Login) включён",
+        add_finding("Network", "medium", "SSH (Remote Login) is ON",
                     f"{ssh_enabled}\n{ssh_permit_root}\n{ssh_pass}",
-                    "Убедись что PasswordAuthentication no, PermitRootLogin no")
+                    "Ensure PasswordAuthentication no, PermitRootLogin no")
 
     # Проверка DNS на подозрительные домены (обычно adware меняет DNS)
     try:
         for domain in SUSPICIOUS_DOMAINS:
             try:
                 ip = socket.gethostbyname(domain)
-                add_finding("Сеть", "high", f"⚠️ Подозрительный домен резолвится: {domain} → {ip}",
-                            "Этот домен может быть связан с adware/hijacker",
-                            "Проверь DNS-настройки: networksetup -getdnsservers Wi-Fi")
+                add_finding("Network", "high", f"⚠️ Suspicious domain resolves: {domain} → {ip}",
+                            "This domain may be linked to adware/hijacker",
+                            "Check DNS settings: networksetup -getdnsservers Wi-Fi")
                 break
             except socket.gaierror:
                 pass
@@ -380,7 +380,7 @@ def check_browser():
     # Safari extensions
     safari_ext = run_cmd("find ~/Library/Safari/Extensions -name '*.safariextz' -o -name '*.safariextension' 2>/dev/null | head -20")
     if safari_ext:
-        add_finding("Браузер", "medium", f"Расширения Safari ({len(safari_ext.splitlines())}):",
+        add_finding("Browser", "medium", f"Safari extensions ({len(safari_ext.splitlines())}):",
                     safari_ext[:300])
 
     # Chrome extensions — ищем manifest.json внутри папки с версией
@@ -404,9 +404,9 @@ def check_browser():
                         name = data.get("name", "unknown")
                         ext_info.append(f"  • {ext.name}: {name} (v{latest.name})")
                     except:
-                        ext_info.append(f"  • {ext.name}: (не удалось прочитать)")
-            add_finding("Браузер", "info", f"Расширения Chrome ({len(chrome_exts)} шт.):",
-                        '\n'.join(ext_info) if ext_info else "Есть расширения")
+                        ext_info.append(f"  • {ext.name}: (failed to read)")
+            add_finding("Browser", "info", f"Chrome extensions ({len(chrome_exts)}):",
+                        '\n'.join(ext_info) if ext_info else "Has extensions")
 
 # ═══════════════════════════════════════════
 # 8. ПРОВЕРКА ЗЛОКАЧЕСТВЕННЫХ ПАКЕТОВ В /Applications
@@ -422,16 +422,16 @@ def check_applications():
 
     if susp_apps:
         for sa in susp_apps:
-            add_finding("Приложения", "critical", f"⚠️ Подозрительное приложение: {sa}",
-                        "Обнаружено в /Applications/",
-                        f"Удали: sudo rm -rf '/Applications/{sa.split(' (')[0]}'")
+            add_finding("Applications", "critical", f"⚠️ Suspicious app: {sa}",
+                        "Found in /Applications/",
+                        f"Remove: sudo rm -rf '/Applications/{sa.split(' (')[0]}'")
     else:
-        add_finding("Приложения", "info", "Подозрительных приложений не найдено ✅",
-                    f"Всего в /Applications/: {len(apps.splitlines())} программ")
+        add_finding("Applications", "info", "No suspicious applications found ✅",
+                    f"Total in /Applications/: {len(apps.splitlines())} apps")
 
     # Проверка SETUID битов
     # suid = run_cmd("find / -perm -4000 -type f 2>/dev/null | head -20")
-    # add_finding("Приложения", "info", "SUID бинарники:", suid[:500])
+    # add_finding("Applications", "info", "SUID бинарники:", suid[:500])
 
 # ═══════════════════════════════════════════
 # 9. СЕТЕВЫЕ ФИЛЬТРЫ И VPN (защита)
@@ -441,18 +441,18 @@ def check_network_protection():
     # ZeroTier status
     zt = run_cmd("ps aux | grep -i zerotier | grep -v grep | head -5")
     if zt:
-        zt_networks = run_cmd("zerotier-cli listnetworks 2>/dev/null | grep OK || echo 'Не удалось'")
-        add_finding("Сеть", "info", f"ZeroTier: активен", zt_networks if zt_networks != 'Не удалось' else "Запущен")
+        zt_networks = run_cmd("zerotier-cli listnetworks 2>/dev/null | grep OK || echo 'Failed'")
+        add_finding("Network", "info", f"ZeroTier: active", zt_networks if zt_networks != 'Failed' else "Running")
 
     # VPN check
     vpn = run_cmd("scutil --nc list 2>/dev/null | head -10")
     if vpn:
-        add_finding("Сеть", "info", "VPN-подключения:", vpn)
+        add_finding("Network", "info", "VPN connections:", vpn)
 
     # DNS configuration
     dns = run_cmd("networksetup -getdnsservers Wi-Fi 2>/dev/null || networksetup -getdnsservers Ethernet 2>/dev/null")
     if dns and dns != "(null)":
-        add_finding("Сеть", "info", f"DNS серверы: {dns}", "Проверь что это твои DNS")
+        add_finding("Network", "info", f"DNS servers: {dns}", "Verify these are your DNS servers")
 
 # ═══════════════════════════════════════════
 # 10. ПАМЯТЬ И ДИСК
@@ -469,15 +469,15 @@ def check_resources():
     disk_pct = disk_usage.split()[-2].replace('%', '') if disk_usage else '0'
     try:
         if int(disk_pct) > 90:
-            add_finding("Ресурсы", "medium", f"Диск заполнен на {disk_pct}% ❌",
-                        disk_usage, "Освободи место: очисти кэши, удали ненужные файлы")
+            add_finding("Resources", "medium", f"Disk is {disk_pct}% full ❌",
+                        disk_usage, "Free up space: clear caches, remove unused files")
         elif int(disk_pct) > 80:
-            add_finding("Ресурсы", "low", f"Диск заполнен на {disk_pct}% ⚠️",
-                        disk_usage, "Рекомендуется освободить место")
+            add_finding("Resources", "low", f"Disk is {disk_pct}% full ⚠️",
+                        disk_usage, "Recommended to free up space")
     except:
         pass
 
-    add_finding("Ресурсы", "info", f"RAM: {mem.strip()} | Swap: {swap.strip()}",
+    add_finding("Resources", "info", f"RAM: {mem.strip()} | Swap: {swap.strip()}",
                 f"Load Average: {load.strip()}")
 
 # ═══════════════════════════════════════════
@@ -488,7 +488,7 @@ def check_auth_log():
     last_failed = run_cmd("log show --predicate 'process contains \"sshd\" and message contains \"Failed\"' --last 1d 2>/dev/null | tail -5")
     if not last_failed:
         last_failed = run_cmd("last -10 2>/dev/null")
-    add_finding("Аутентификация", "info", "Последние логины:", last_failed[:500] if last_failed else "Нет данных")
+    add_finding("Authentication", "info", "Last logins:", last_failed[:500] if last_failed else "No data")
 
 # ═══════════════════════════════════════════
 # MAIN
@@ -496,7 +496,7 @@ def check_auth_log():
 
 def main(report_path=None):
     print("🔍 macOS Security Scanner v" + VERSION)
-    print("  Сканирую систему...\n")
+    print("  Scanning system...\n")
 
     check_system_info()
     check_basic_security()
@@ -527,7 +527,7 @@ def main(report_path=None):
         report_path.parent.mkdir(parents=True, exist_ok=True)
         with open(report_path, 'w') as f:
             json.dump(json_report, f, indent=2, ensure_ascii=False)
-        print(f"\n📊 JSON-отчёт сохранён: {report_path}")
+        print(f"\n📊 JSON report saved: {report_path}")
     else:
         print(report)
 
@@ -537,7 +537,7 @@ def main(report_path=None):
     report_path_txt = report_dir / f"security-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
     with open(report_path_txt, 'w') as f:
         f.write(report)
-    print(f"📝 Отчёт сохранён: {report_path_txt}")
+    print(f"📝 Report saved: {report_path_txt}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OldMacGuard — macOS Security Scanner for legacy Macs")
