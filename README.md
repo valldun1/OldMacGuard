@@ -11,7 +11,7 @@ Modern antivirus companies dropped support for older macOS versions. But million
 - **Zero external dependencies** — pure Python stdlib + built-in macOS commands
 - **Works on macOS 10.12+** — tested on High Sierra (10.13), Sierra (10.12)
 - **No installation needed** — just download and run with `python3`
-- **Lightweight** — ~200 lines, no background processes, no bloat
+- **Lightweight** — ~530 lines, no background processes, no bloat
 - **AI-Agent ready** — designed to be run by **Hermes Agent, Claude Code, ChatGPT, Copilot, OpenCode**, or any AI coding agent
 
 ## ✨ Features
@@ -23,13 +23,13 @@ Modern antivirus companies dropped support for older macOS versions. But million
 - ✅ **Network check** — open ports, suspicious DNS, SSH config
 - ✅ **Browser extensions** — detects Chrome extensions
 - ✅ **Scoring system** — rates security from 0-100
-- ✅ **Auto-updating signatures** — pulls from Objective-See, XProtect, adware blocklists
+- ✅ **Updatable signatures** — pull latest via `python3 update-signatures.py`
 
 ## 🚀 Quick Start
 
 ```bash
 # Clone
-git clone https://github.com/Valkonstantinov/OldMacGuard.git
+git clone https://github.com/valldun1/OldMacGuard.git
 cd OldMacGuard
 
 # Run the scanner
@@ -66,7 +66,7 @@ curl -sL https://raw.githubusercontent.com/valldun1/OldMacGuard/main/scanner.py 
 ...
 ```
 
-## 🔄 Automatic Signature Updates
+## 🔄 Updating Signatures
 
 ```bash
 # Update malware signatures from public sources
