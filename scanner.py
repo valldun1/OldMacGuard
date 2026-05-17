@@ -28,7 +28,8 @@ REPORT = {
 }
 
 # ===== ЗАГРУЗКА СИГНАТУР ИЗ ВНЕШНЕЙ БАЗЫ =====
-SIGNATURES_PATH = Path.home() / ".hermes" / "scripts" / "malware-signatures.json"
+SCRIPT_DIR = Path(__file__).parent.resolve()
+SIGNATURES_PATH = SCRIPT_DIR / "malware-signatures.json"
 BUILTIN_SIGNATURES_VERSION = "1.0"
 
 def load_signatures():
@@ -101,14 +102,6 @@ SUSPICIOUS_DOMAINS = SIGS.get("suspicious_domains", [])
 SUSPICIOUS_APP_NAMES = SIGS.get("suspicious_app_names", [])
 SUSPICIOUS_LAUNCHAGENT_KEYWORDS = SIGS.get("suspicious_launchagent_keywords", [])
 
-# Подозрительные пути автозагрузки (известные persistence точки малвари)
-SUSPICIOUS_PATTERNS = {
-    "LaunchAgents": [
-        "com.*.agent.plist", "com.*.daemon.plist", "com.*.helper.plist",
-        "*startup*", "*update*", "*helper*", "*service*", "*chrome*update*"
-    ],
-    "CronJobs": ["*malware*", "*virus*", "*pup*", "*cleaner*", "*optimizer*"],
-}
 
 def run_cmd(cmd, timeout=30):
     """Выполнить shell-команду, вернуть stdout"""
@@ -299,25 +292,19 @@ def check_launch_agents():
         except:
             reported.append(f"  • {name} → (не удалось прочитать)")
 
-    # System LaunchDaemons
+    # System LaunchDaemons (только сторонние)
     sys_ld = list(Path("/Library/LaunchDaemons").glob("*.plist")) if os.path.isdir("/Library/LaunchDaemons") else []
-    sys_la = list(Path("/Library/LaunchAgents").glob("*.plist")) if os.path.isdir("/Library/LaunchAgents") else []
     third_party_ld = []
     for plist in sys_ld:
-        if any(x in plist.name for x in ['com.apple.', 'com.openssh.', 'com.apple.dysfunctionaltest']):
-            # Skip Apple system daemons
-            known_apple = ['com.apple.', 'com.openssh.']
-            if not any(plist.name.startswith(x) for x in known_apple):
-                pass
-        # Just list non-Apple ones
-        if not plist.name.startswith('com.apple.'):
-            try:
-                with open(plist, 'rb') as f:
-                    data = plistlib.load(f)
-                prog = str(data.get('Program', data.get('ProgramArguments', [''])))[:120]
-                third_party_ld.append(f"  • {plist.name} → {prog}")
-            except:
-                third_party_ld.append(f"  • {plist.name} → (не удалось прочитать)")
+        if plist.name.startswith('com.apple.') or plist.name.startswith('com.openssh.'):
+            continue
+        try:
+            with open(plist, 'rb') as f:
+                data = plistlib.load(f)
+            prog = str(data.get('Program', data.get('ProgramArguments', [''])))[:120]
+            third_party_ld.append(f"  • {plist.name} → {prog}")
+        except:
+            third_party_ld.append(f"  • {plist.name} → (не удалось прочитать)")
 
     add_finding("Автозагрузка", "info", f"User LaunchAgents: {len(user_la)} шт.",
                 '\n'.join(reported) if reported else "Пусто (только Hermes)")
@@ -346,10 +333,8 @@ def check_scheduler():
         add_finding("Планировщик", "medium", "Найдены cron-задачи — проверь",
                     cron[:500], "Проверь что каждая задача безопасна: crontab -l")
 
-    # System cron
+    # System cron (справочно)
     system_cron = run_cmd("ls /etc/periodic/daily/ /etc/periodic/weekly/ /etc/periodic/monthly/ 2>/dev/null")
-    # at jobs
-    at_jobs = run_cmd("atq 2>/dev/null || echo 'Нет at-задач'")
 
 # ═══════════════════════════════════════════
 # 6. СЕТЬ — открытые порты, подозрительные соединения
@@ -397,22 +382,28 @@ def check_browser():
         add_finding("Браузер", "medium", f"Расширения Safari ({len(safari_ext.splitlines())}):",
                     safari_ext[:300])
 
-    # Chrome extensions
+    # Chrome extensions — ищем manifest.json внутри папки с версией
     chrome_ext_path = Path.home() / "Library/Application Support/Google/Chrome/Default/Extensions"
     if chrome_ext_path.exists():
         chrome_exts = list(chrome_ext_path.glob("*"))
         if chrome_exts:
             ext_info = []
             for ext in chrome_exts:
-                manifest = ext / "manifest.json"
+                # Структура: ext_id/VERSION/manifest.json
+                versions = list(ext.glob("*"))
+                if not versions:
+                    continue
+                # Берём последнюю версию
+                latest = sorted(versions)[-1]
+                manifest = latest / "manifest.json"
                 if manifest.exists():
                     try:
                         with open(manifest) as f:
                             data = json.load(f)
                         name = data.get("name", "unknown")
-                        ext_info.append(f"  • {ext.name}: {name}")
+                        ext_info.append(f"  • {ext.name}: {name} (v{latest.name})")
                     except:
-                        ext_info.append(f"  • {ext.name}")
+                        ext_info.append(f"  • {ext.name}: (не удалось прочитать)")
             add_finding("Браузер", "info", f"Расширения Chrome ({len(chrome_exts)} шт.):",
                         '\n'.join(ext_info) if ext_info else "Есть расширения")
 
@@ -521,9 +512,10 @@ def main():
     report = format_report()
     print(report)
 
-    # Save report
-    report_path = Path.home() / ".hermes" / "scans" / f"security-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
+    # Save report next to script
+    report_dir = SCRIPT_DIR / "reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_path = report_dir / f"security-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
     with open(report_path, 'w') as f:
         f.write(report)
     print(f"\n📝 Отчёт сохранён: {report_path}")
