@@ -16,6 +16,7 @@ import socket
 import struct
 import time
 import re
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -493,7 +494,7 @@ def check_auth_log():
 # MAIN
 # ═══════════════════════════════════════════
 
-def main():
+def main(report_path=None):
     print("🔍 macOS Security Scanner v" + VERSION)
     print("  Сканирую систему...\n")
 
@@ -510,15 +511,37 @@ def main():
     check_auth_log()
 
     report = format_report()
-    print(report)
 
-    # Save report next to script
+    if report_path:
+        # JSON output for AI agents / programmatic consumption
+        json_report = {
+            "version": VERSION,
+            "time": REPORT["time"],
+            "hostname": REPORT["hostname"],
+            "score": max(0, REPORT["score"]),
+            "findings": REPORT["findings"],
+            "summary": "good" if REPORT["score"] >= 80 else ("warning" if REPORT["score"] >= 50 else "critical"),
+            "total_findings": len(REPORT["findings"]),
+        }
+        report_path = Path(report_path)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(report_path, 'w') as f:
+            json.dump(json_report, f, indent=2, ensure_ascii=False)
+        print(f"\n📊 JSON-отчёт сохранён: {report_path}")
+    else:
+        print(report)
+
+    # Save text report next to script
     report_dir = SCRIPT_DIR / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
-    report_path = report_dir / f"security-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-    with open(report_path, 'w') as f:
+    report_path_txt = report_dir / f"security-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+    with open(report_path_txt, 'w') as f:
         f.write(report)
-    print(f"\n📝 Отчёт сохранён: {report_path}")
+    print(f"📝 Отчёт сохранён: {report_path_txt}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="OldMacGuard — macOS Security Scanner for legacy Macs")
+    parser.add_argument("--report", type=str, default=None,
+                        help="Save machine-readable JSON report to PATH (e.g. /tmp/security.json)")
+    args = parser.parse_args()
+    main(report_path=args.report)
